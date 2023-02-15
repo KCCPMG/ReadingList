@@ -1,0 +1,23 @@
+/* body {
+  position: fixed;
+  top: 0px;
+  right: 0px;
+  bottom: 0px;
+  left: 0px;
+  min-width: 300px;
+  min-height: 800px;
+} */
+
+
+body {
+  background: white; 
+  width: 425px; 
+  /* position: fixed;  */
+  top: 0px; 
+  right: 0px; 
+  z-index: 99999; 
+  /* box-shadow: rgba(0, 0, 0, 0.08) 0px 1px 1px, rgba(0, 0, 0, 0.2) 0px 3px 12px;  */
+  border: none; 
+  height: 100%;
+}
+

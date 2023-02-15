@@ -1,0 +1,20 @@
+{
+    "name": "Reading List",
+    "version": "1.0.0",
+    "description": "Keep track of links to read",
+    "manifest_version": 3,
+    "author": "Connor Wales",
+    "action": {
+        "default_icon" : {},
+        "default_title": "Reading List",
+        "default_popup": "index.html"
+    },
+    "content_scripts": [
+        {
+            "js": ["script.js"],
+            "matches": ["<all_urls>"]
+        }
+    ]
+    
+
+}
