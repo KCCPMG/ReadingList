@@ -9,12 +9,7 @@
         "default_title": "Reading List",
         "default_popup": "index.html"
     },
-    "content_scripts": [
-        {
-            "js": ["script.js"],
-            "matches": ["<all_urls>"]
-        }
+    "permissions": [
+        "activeTab", "tabs"
     ]
-    
-
 }
