@@ -1,29 +1,46 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const config = require('../config');
+const dotenv = require('dotenv');
+const jwt = require('jsonwebtoken');
+const {UnauthorizedError} = require('../expressError');
 
+// Regular expressions for validating input
 const URL_REGEX = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/;
 const EMAIL_REGEX = /^\S+@\S+$/;
 const TAG_REGEX = /^(?:[\w-]+)$/;
 
-const TagSchema = mongoose.Schema({
+
+// dotenv for SECRET_KEY needed for passwords
+dotenv.config({
+  path: './.env'
+})
+
+// salt and hash for bcrypt
+const SALT_ROUNDS = config.TEST ? 1: 12;
+const SALT = bcrypt.genSaltSync(SALT_ROUNDS);
+
+
+const TagSchema = new mongoose.Schema({
   tagText: {
     type: String,
     required: true,
     validate: {
-      function(tagText) {
+      validator: function(tagText) {
         return TAG_REGEX.test(tagText);
       },
-      message: props => `Please make sure that your tag contains only letters, numbers, hyphens, and underscores`
+      message: () => `Please make sure that your tag contains only letters, numbers, hyphens, and underscores`
     }
   }
 })
 
 
-const LinkSchema = mongoose.Schema({
+const LinkSchema = new mongoose.Schema({
   url: {
     type: String,
     required: true,
     validate: {
-      function(url) {
+      validator: function(url) {
         return URL_REGEX.test(url);
       },
       message: props => `${props.value} is not a valid url`
@@ -37,7 +54,7 @@ const LinkSchema = mongoose.Schema({
     type: String,
     required: false,
     validate: {
-      function(url) {
+      validator: function(url) {
         return URL_REGEX.test(url);
       },
       message: props => `${props.value} is not a valid url`
@@ -48,22 +65,24 @@ const LinkSchema = mongoose.Schema({
     default: true
   }, 
   tags: {
-    type: [Tag],
+    type: [TagSchema],
     default: []
   }
 })
 
 
-const UserSchema = mongoose.Schema({
+const UserSchema = new mongoose.Schema({
   username: {
     type: String,
-    required: true
+    required: true,
+    unique: true
   },
   email: {
     type: String,
     required: true,
+    unique: true,
     validate: {
-      function(email_address) {
+      validator: function(email_address) {
         return URL_REGEX.test(email_address);
       },
       message: props => 'Please enter a valid email address'
@@ -84,8 +103,97 @@ const UserSchema = mongoose.Schema({
   create_time: {
     type: Date,
     default: new Date()
+  },
+}, {
+  statics: {
+    /**
+     * 
+     * @param {String} username 
+     * @param {String} email 
+     * @param {String} password 
+     * @returns {User}
+     * Creates user from username, email, and password,
+     * by hasing password and using own create method
+     */
+    async createAndSave(username, email, password) {
+      try {
+        // replace password with hashed_password
+        const hashed_password = bcrypt.hashSync(password, SALT)
+
+        const doc = await this.create({
+          username,
+          email,
+          hashed_password
+        });
+
+        await doc.save();
+        return doc;
+      } catch(err) {
+        throw err;
+      }
+    },
+    /**
+     * 
+     * @param {String} username 
+     * @param {String} password 
+     * @returns {{user: User, token: String}}
+     * Finds user with username, compares given password
+     * to hashed_password using bcrypt, if match, returns
+     * an object with the user and a token. If no match,
+     * throws UnauthorizedError with "Invalid Credentials"
+     * message. NOTE: THE USER THAT IS RETURNED HERE INCLUDES
+     * THE HASHED_PASSWORD, AND NEEDS TO BE REMOVED
+     */
+    async login(username, password) {
+      try {
+        let user = await this.findOne({username});
+        if (!user) throw new UnauthorizedError("Invalid Credentials");
+        if (bcrypt.compareSync(password, user.hashed_password)) {
+          return {
+            user,
+            token: jwt.sign({
+              id: user._id
+            }, process.env.SECRET_KEY)
+          }
+        } else {
+          throw new UnauthorizedError("Invalid Credentials");
+        }
+      } catch(err) {
+        throw err;
+      }
+    },
+    /**
+     * 
+     * @param {String} username 
+     * @param {String} password 
+     * @returns {{user: User, token: String}}
+     * Wrapper function for login to remove the hashed password
+     * from the returned user object
+     */
+    async safeLogin(username, password) {
+      try {
+        const loggedInUser = await this.login(username, password);
+        loggedInUser.user = loggedInUser.user.toObject();
+        delete loggedInUser.user.hashed_password;
+        return loggedInUser;
+      } catch(err) {
+        throw(err);
+      }
+    },
+    async logout() {
+
+    },
+    async authenticate(token) {
+      try {
+        await jwt.verify(token);
+      } catch(err) {
+        throw err;
+      }
+    }
   }
 })
+
+
 
 
 module.exports = mongoose.model('User', UserSchema);

@@ -12,3 +12,5 @@ class UnauthorizedError extends ExpressError {
     super(message, 401);
   }
 }
+
+module.exports = {ExpressError, UnauthorizedError}
