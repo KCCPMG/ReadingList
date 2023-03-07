@@ -183,11 +183,33 @@ const UserSchema = new mongoose.Schema({
     async logout() {
 
     },
+    /**
+     * 
+     * @param {*} token 
+     * @returns {User}
+     * 
+     * Takes a token, verifies it to get a userId,
+     * takes the userId to get the appropriate User
+     * If there is an error with the token, throws
+     * an UnauthorizedError with "Invalid Token".
+     * If there is an error with finding the User, 
+     * throws an UnauthorizedError with "Invalid User"
+     */
     async authenticate(token) {
       try {
-        await jwt.verify(token);
+        const userId = jwt.verify(token, process.env.SECRET_KEY).id;
+        const user = await this.findById(userId);
+        if (!user) {
+          throw new UnauthorizedError("Invalid User");
+        } else return user;
+        
       } catch(err) {
-        throw err;
+        if (err.name === 'JsonWebTokenError') {
+          throw new UnauthorizedError("Invalid Token");
+        } else if (err.name==="CastError") {
+          throw new UnauthorizedError("Invalid User");
+        }
+        else throw err;
       }
     }
   }

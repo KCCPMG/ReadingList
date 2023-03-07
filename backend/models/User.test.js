@@ -130,3 +130,30 @@ describe("Successfully logs in", function() {
   })
 
 })
+
+
+describe("Successfully authenticates a valid token", function(){
+
+  test("Returns user on valid token", async function() {
+
+    const {username, email, password} = unhashedTestUserDoc;
+    const loggedIn = await User.login(username, password);
+    // expect(loggedIn.user.username).toBe(username);
+
+
+    const token = loggedIn.token;
+    const user = await User.authenticate(token);
+    expect(user.username).toBe(username);
+  })
+
+
+  test("Throws UnauthorizedError ('Invalid Token') on valid token with invalid ObjectId", async function() {
+    const badToken = "badtoken";
+    await expect(User.authenticate(badToken)).rejects.toThrow("Invalid Token")
+  })
+
+  test("Throws UnauthorizedError ('Invalid User') on valid token with invalid user", async function(){
+    const badToken = jwt.sign({id: mongoose.Types.ObjectId().toString()}, process.env.SECRET_KEY);
+    await expect(User.authenticate(badToken)).rejects.toThrow("Invalid User")  
+  })
+})
