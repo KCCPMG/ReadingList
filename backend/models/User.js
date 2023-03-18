@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const config = require('../config');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
-const {UnauthorizedError} = require('../expressError');
+const {UnauthorizedError, DuplicateUsernameError, DuplicateEmailError, ExpressError} = require('../expressError');
 
 // Regular expressions for validating input
 const URL_REGEX = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/;
@@ -70,6 +70,14 @@ const LinkSchema = new mongoose.Schema({
   }
 })
 
+LinkSchema.methods.honk = () => {
+  console.log('HONK!');
+}
+
+LinkSchema.methods.print = function(){
+  console.log(this.url, this.title, this.iconUrl, this.toRead, this.tags);
+}
+
 
 const UserSchema = new mongoose.Schema({
   username: {
@@ -129,7 +137,13 @@ const UserSchema = new mongoose.Schema({
         await doc.save();
         return doc;
       } catch(err) {
-        throw err;
+        if (err.message.startsWith("E11000 duplicate key error collection: ReadingList.users index: username_1")) {
+          throw new DuplicateUsernameError();
+        }
+        else if (err.message.startsWith("E11000 duplicate key error collection: ReadingList.users index: email_1")) {
+          throw new DuplicateEmailError();
+        } 
+        else throw new ExpressError(err.message, 400);
       }
     },
     /**
@@ -212,6 +226,13 @@ const UserSchema = new mongoose.Schema({
         else throw err;
       }
     }
+  },
+  methods: {
+    addTag() {},
+    deleteTag() {},
+    addUrl() {},
+    deleteUrl() {},
+    editUrl() {},
   }
 })
 

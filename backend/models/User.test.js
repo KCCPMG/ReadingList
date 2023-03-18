@@ -2,7 +2,7 @@
 const config = require('../config');
 config.TEST = true;
 
-
+const {ExpressError, DuplicateUsernameError, DuplicateEmailError, UnauthorizedError} = require('../expressError')
 const User = require('./User');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
@@ -50,7 +50,7 @@ afterAll(async() => {
 describe("smoke test", function() {
 
   test("doesn't blow up", function() {
-    console.log("I didn't blow up!")
+    // just don't throw an error
   })
 })
 
@@ -60,9 +60,8 @@ describe("Creates User", function() {
     let user = new User(testUserDoc)
     await user.save();
   })
-
-
 })
+
 
 describe("Creates User using schema method", function() {
   test("Creates and saves a valid User with User.createAndSave", async function(){
@@ -74,24 +73,36 @@ describe("Creates User using schema method", function() {
   })
 
   test("Fails on invalid User", async function() {
-    await expect(User.createAndSave("baduser", "invalidemail", "password"))
+    const badPromise = User.createAndSave("baduser", "invalidemail", "password")
+    await expect(badPromise)
     .rejects
     .toThrow("User validation failed: email: Please enter a valid email address")
+
+    // check constructor, already awaited
+    expect(badPromise).rejects.toThrow(ExpressError);
   })
 
   test("Fails on duplicate username", async function() {
     const {username, email, password} = unhashedTestUserDoc;
-    await expect(User.createAndSave(username, email, password))
+    const badPromise = User.createAndSave(username, email, password)
+    await expect(badPromise)
     .rejects
-    .toThrow("E11000 duplicate key error collection: ReadingList.users index: username_1 dup key: { username: \"unhasheduser\" }")
+    .toThrow("Cannot create user, a user with that username already exists")
+
+    // check constructor, already awaited
+    expect(badPromise).rejects.toThrow(DuplicateUsernameError)
   })
 
 
   test("Fails on duplicate email", async function() {
     const {email, password} = unhashedTestUserDoc;
-    await expect(User.createAndSave("validusername", email, password))
+    const badPromise = User.createAndSave("validusername", email, password)
+    await expect(badPromise)
     .rejects
-    .toThrow(`E11000 duplicate key error collection: ReadingList.users index: email_1 dup key: { email: \"${email}\" }`)
+    .toThrow("Cannot create user, a user with that email address already exists")
+
+    // check constructor, already awaited
+    expect(badPromise).rejects.toThrow(DuplicateEmailError)
   })
 
 })
@@ -138,8 +149,6 @@ describe("Successfully authenticates a valid token", function(){
 
     const {username, email, password} = unhashedTestUserDoc;
     const loggedIn = await User.login(username, password);
-    // expect(loggedIn.user.username).toBe(username);
-
 
     const token = loggedIn.token;
     const user = await User.authenticate(token);
