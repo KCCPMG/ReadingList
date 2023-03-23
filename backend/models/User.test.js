@@ -2,7 +2,8 @@
 const config = require('../config');
 config.TEST = true;
 
-const {ExpressError, DuplicateUsernameError, DuplicateEmailError, UnauthorizedError} = require('../expressError')
+const {ExpressError, DuplicateUsernameError, DuplicateEmailError, 
+DuplicateTagError, UnauthorizedError} = require('../expressError')
 const User = require('./User');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
@@ -67,7 +68,6 @@ describe("Creates User using schema method", function() {
   test("Creates and saves a valid User with User.createAndSave", async function(){
     const {username, email, password} = unhashedTestUserDoc
     let savedUser = await User.createAndSave(username, email, password);
-    console.log(savedUser);
     expect(savedUser.hashed_password).not.toBe('password');
     expect(savedUser.username).toBe('unhasheduser')
   })
@@ -165,4 +165,44 @@ describe("Successfully authenticates a valid token", function(){
     const badToken = jwt.sign({id: mongoose.Types.ObjectId().toString()}, process.env.SECRET_KEY);
     await expect(User.authenticate(badToken)).rejects.toThrow("Invalid User")  
   })
+})
+
+
+describe("Creates Tag with User.addTag", function() {
+  
+  test("Successfully creates a valid tag", async function() {
+    let testUser = await User.findOne({username: 'testuser'});
+    await testUser.addTag("test-tag");
+    expect(Boolean(testUser.tags.find(t => t.tagText === 'test-tag'))).toBe(true);
+  })
+
+  test("Throws an error with an invalid tag", async function() {
+    let testUser = await User.findOne({username: 'testuser'});
+    await expect(testUser.addTag("invalid tag"))
+    .rejects
+    .toThrow("Please make sure that your tag contains only letters, numbers, hyphens, and underscores");
+    
+  })
+
+  test("Does not throw an error with multiple users creating same tag", async function() {
+    let userOne = await User.findOne({username: 'testuser'});
+    let userTwo = await User.findOne({username: "unhasheduser"});
+    await Promise.all([
+      userOne.addTag('test-duplicate'),
+      userTwo.addTag('test-duplicate')
+    ])
+    expect(Boolean(userOne.tags.find(t => t.tagText === 'test-duplicate'))).toBe(true);
+    expect(Boolean(userTwo.tags.find(t => t.tagText === 'test-duplicate'))).toBe(true);
+  })
+
+  test("Throws a DuplicateTagError with one user creating duplicate tags", async function() {
+    let testUser = await User.findOne({username: 'testuser'});
+    await testUser.addTag("same-user-duplicate");
+    expect(Boolean(testUser.tags.find(t => t.tagText === 'test-tag'))).toBe(true);
+
+    await expect(testUser.addTag("same-user-duplicate"))
+    .rejects
+    .toThrow(DuplicateTagError)
+  })
+
 })

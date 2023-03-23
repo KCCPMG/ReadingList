@@ -30,11 +30,18 @@ const TagSchema = new mongoose.Schema({
       validator: function(tagText) {
         return TAG_REGEX.test(tagText);
       },
-      message: () => `Please make sure that your tag contains only letters, numbers, hyphens, and underscores`
+      message: () => "Please make sure that your tag contains only letters, numbers, hyphens, and underscores"
     }
   }
 }, {
   statics: {
+    /**
+     * 
+     * @param {*} tagText 
+     * @returns {Tag}
+     * Creates and saves a tag with just tagText. Does 
+     * NOT check for duplicates 
+     */
     async createAndSave(tagText) {
       try {
         const doc = await this.create({
@@ -264,18 +271,28 @@ const UserSchema = new mongoose.Schema({
       }
       
     },
+    /**
+     * 
+     * @param {*} tagText 
+     * @returns {User}
+     * Given a tagText string, checks for a duplicate
+     * within the User's tags, and if not, calls the 
+     * Tag method for creation, pushes the tag to the User's
+     * tags, saves, and returns the modified User
+     */
     async addTag(tagText) {
       try {
         //check for duplicates
-        console.log(this);
         if (this.tags.find(t => t.tagText === tagText)) {
-          throw DuplicateTagError;
+          throw new DuplicateTagError();
         }
         let tag = await Tag.createAndSave(tagText);
         this.tags.push(tag);
-        this.save();
+        await this.save();
+        return this;
       } catch(err) {
-        console.log(err);
+        if (err instanceof ExpressError) throw err;
+        else throw new ExpressError(e.message);
       }
     },
     deleteTag() {},
