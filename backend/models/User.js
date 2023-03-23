@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const config = require('../config');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
-const {UnauthorizedError, DuplicateUsernameError, DuplicateEmailError, ExpressError} = require('../expressError');
+const {UnauthorizedError, DuplicateUsernameError, DuplicateEmailError, ExpressError, DuplicateTagError} = require('../expressError');
 
 // Regular expressions for validating input
 const URL_REGEX = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/;
@@ -25,6 +25,7 @@ const TagSchema = new mongoose.Schema({
   tagText: {
     type: String,
     required: true,
+    unique: false,
     validate: {
       validator: function(tagText) {
         return TAG_REGEX.test(tagText);
@@ -32,8 +33,23 @@ const TagSchema = new mongoose.Schema({
       message: () => `Please make sure that your tag contains only letters, numbers, hyphens, and underscores`
     }
   }
+}, {
+  statics: {
+    async createAndSave(tagText) {
+      try {
+        const doc = await this.create({
+          tagText
+        })
+        await doc.save();
+        return doc;
+      } catch(err) {
+        throw new ExpressError(err.message);
+      }
+    } 
+  }
 })
 
+const Tag = mongoose.model('Tag', TagSchema);
 
 const LinkSchema = new mongoose.Schema({
   url: {
@@ -65,18 +81,12 @@ const LinkSchema = new mongoose.Schema({
     default: true
   }, 
   tags: {
-    type: [TagSchema],
+    type: [mongoose.Types.ObjectId],  // ObjectId of tags
     default: []
   }
 })
 
-LinkSchema.methods.honk = () => {
-  console.log('HONK!');
-}
-
-LinkSchema.methods.print = function(){
-  console.log(this.url, this.title, this.iconUrl, this.toRead, this.tags);
-}
+const Link = mongoose.model('Link', LinkSchema);
 
 
 const UserSchema = new mongoose.Schema({
@@ -228,11 +238,47 @@ const UserSchema = new mongoose.Schema({
     }
   },
   methods: {
-    addTag() {},
+    async addLink(url, title, iconUrl, tags) {
+      try {
+        let tagIds = [];
+        let addTagPromises = [];
+        for (let tag of tags) {
+          let tagObj = this.tags.find(t => t.text === tag);
+          if (tagObj) {
+            tagIds.push(tagObj._id);
+          } else {
+            addTagPromises.push()
+          }
+        }
+        await Promise.all(addTagPromises).then(tags => {
+          tags.forEach(t => {
+            tagIds.push(t._id);
+          })
+        })
+        // make sure link does not already exist
+        let link = await Link.createAndSave(url, title, iconUrl, tagIds);
+        this.links.push(link);
+        
+      } catch(err) {
+        console.log(err);
+      }
+      
+    },
+    async addTag(tagText) {
+      try {
+        //check for duplicates
+        console.log(this);
+        if (this.tags.find(t => t.tagText === tagText)) {
+          throw DuplicateTagError;
+        }
+        let tag = await Tag.createAndSave(tagText);
+        this.tags.push(tag);
+        this.save();
+      } catch(err) {
+        console.log(err);
+      }
+    },
     deleteTag() {},
-    addUrl() {},
-    deleteUrl() {},
-    editUrl() {},
   }
 })
 

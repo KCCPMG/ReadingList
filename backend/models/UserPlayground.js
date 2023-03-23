@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 
 async function main() {
   try {
+    mongoose.set('strictQuery', false);
     const dbstring = 'mongodb://127.0.0.1:27017';
     const options =  {
       dbName: 'ReadingList'
@@ -29,3 +30,4 @@ main();
 module.exports = {User, mongoose, jwt};
 // In NodeJS, run 
 // const {User, mongoose, jwt} = require('./models/UserPlayground.js');
+// bobby = User.findOne({username: 'bobby'}).then(u => bobby=u);

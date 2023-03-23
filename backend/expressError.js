@@ -24,6 +24,12 @@ class DuplicateEmailError extends BadRequestError {
   }
 }
 
+class DuplicateTagError extends BadRequestError {
+  constructor(message="A tag with this text already exists") {
+    super(message);
+  }
+}
+
 
 class UnauthorizedError extends ExpressError {
   constructor(message="Unauthorized") {
@@ -31,4 +37,10 @@ class UnauthorizedError extends ExpressError {
   }
 }
 
-module.exports = {ExpressError, DuplicateUsernameError, DuplicateEmailError, UnauthorizedError}
+module.exports = {
+  ExpressError, 
+  DuplicateUsernameError, 
+  DuplicateEmailError, 
+  DuplicateTagError, 
+  UnauthorizedError
+}
