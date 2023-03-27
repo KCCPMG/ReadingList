@@ -171,17 +171,16 @@ describe("Successfully authenticates a valid token", function(){
 describe("Creates Tag with User.addTag", function() {
   
   test("Successfully creates a valid tag", async function() {
-    let testUser = await User.findOne({username: 'testuser'});
+    const testUser = await User.findOne({username: 'testuser'});
     await testUser.addTag("test-tag");
     expect(Boolean(testUser.tags.find(t => t.tagText === 'test-tag'))).toBe(true);
   })
 
   test("Throws an error with an invalid tag", async function() {
-    let testUser = await User.findOne({username: 'testuser'});
-    await expect(testUser.addTag("invalid tag"))
-    .rejects
-    .toThrow("Please make sure that your tag contains only letters, numbers, hyphens, and underscores");
-    
+    const testUser = await User.findOne({username: 'testuser'});
+    const badPromise = testUser.addTag("invalid tag")
+    await expect(badPromise).rejects.toThrow(ExpressError);
+    await expect(badPromise).rejects.toThrow("Tag validation failed: tagText: Please make sure that your tag contains only letters, numbers, hyphens, and underscores")
   })
 
   test("Does not throw an error with multiple users creating same tag", async function() {
@@ -203,6 +202,31 @@ describe("Creates Tag with User.addTag", function() {
     await expect(testUser.addTag("same-user-duplicate"))
     .rejects
     .toThrow(DuplicateTagError)
+  })
+
+})
+
+
+describe("Adds Link with User.addLink", function() {
+
+  test("Successfully adds link (with new and old tags) and returns user", async function() {
+    const testUser = await User.findOne({username: 'testuser'});
+    testUser.addLink('https://www.ecosia.org/', 'Ecosia - the search engine that plants trees', 'https://cdn-static.ecosia.org/static/icons/favicon.ico', ['test-tag', 'not-as-good-as-google'])
+  })
+
+
+  test("Throws error on duplicate link", async function() {
+
+  })
+
+  
+  test("Throws error on invalid url", async function() {
+
+  })
+
+
+  test("Successfully adds link (with different sets of tags) for two different users without error", async function() {
+
   })
 
 })

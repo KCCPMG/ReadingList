@@ -3,7 +3,14 @@ const bcrypt = require('bcryptjs');
 const config = require('../config');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
-const {UnauthorizedError, DuplicateUsernameError, DuplicateEmailError, ExpressError, DuplicateTagError} = require('../expressError');
+const {
+  ExpressError, 
+  DuplicateUsernameError, 
+  DuplicateEmailError, 
+  InvalidTagError,
+  DuplicateTagError, 
+  UnauthorizedError
+} = require('../expressError');
 
 // Regular expressions for validating input
 const URL_REGEX = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/;
@@ -28,9 +35,11 @@ const TagSchema = new mongoose.Schema({
     unique: false,
     validate: {
       validator: function(tagText) {
-        return TAG_REGEX.test(tagText);
+        // return TAG_REGEX.test(tagText);
+        if (TAG_REGEX.test(tagText)) return true;
+        else throw new InvalidTagError(); // This will still be wrapped in a ValidationError
       },
-      message: () => "Please make sure that your tag contains only letters, numbers, hyphens, and underscores"
+      // message: () => "Please make sure that your tag contains only letters, numbers, hyphens, and underscores"
     }
   }
 }, {
@@ -50,7 +59,9 @@ const TagSchema = new mongoose.Schema({
         await doc.save();
         return doc;
       } catch(err) {
-        throw new ExpressError(err.message);
+        console.log(err.stack);
+        if (err instanceof ExpressError) throw err;
+        else throw new ExpressError(err.message);
       }
     } 
   }
@@ -245,6 +256,15 @@ const UserSchema = new mongoose.Schema({
     }
   },
   methods: {
+    /**
+     * 
+     * @param {*} url 
+     * @param {*} title 
+     * @param {*} iconUrl 
+     * @param {*} tags 
+     * @returns {User}
+     * 
+     */
     async addLink(url, title, iconUrl, tags) {
       try {
         let tagIds = [];
@@ -265,9 +285,10 @@ const UserSchema = new mongoose.Schema({
         // make sure link does not already exist
         let link = await Link.createAndSave(url, title, iconUrl, tagIds);
         this.links.push(link);
-        
+        return this;
       } catch(err) {
-        console.log(err);
+        if (err instanceof ExpressError) throw err;
+        else throw new ExpressError(err.message);
       }
       
     },
